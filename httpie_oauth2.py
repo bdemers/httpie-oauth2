@@ -7,7 +7,7 @@ from oauthlib.oauth2 import BackendApplicationClient, WebApplicationClient, Inse
 from requests_oauthlib import OAuth2Session
 from requests.auth import HTTPBasicAuth, AuthBase
 
-from httpie.cli import parser
+from httpie.cli.definition import parser
 
 from httpie.context import Environment
 
