@@ -1,19 +1,24 @@
 """
 OAuth 2.0 Client Credentials Plugin for HTTPie.
+Extended to support "resource" parameter too, required for ADFS 2016/2019 OAuth2 `client_credential` flows
 """
-import sys
 from httpie.plugins import AuthPlugin
-from oauthlib.oauth2 import BackendApplicationClient, WebApplicationClient, InsecureTransportError
+from oauthlib.oauth2 import BackendApplicationClient, OAuth2Error
 from requests_oauthlib import OAuth2Session
-from requests.auth import HTTPBasicAuth, AuthBase
+from requests.auth import AuthBase
 
-from httpie.cli import parser
+from httpie.cli.definition import parser
 
-from httpie.context import Environment
-
-__version__ = '0.1.0'
+__version__ = '0.1.1'
 __author__ = 'Brian Demers'
 __licence__ = 'BSD'
+
+class HttpieOAuth2Error(Exception):
+    """HTTPie OAuth2 Auth-Plugin Error.
+
+    Raised if the OAuth2 token request is missing or invalid.
+    """
+    pass
 
 class OAuth2Plugin(AuthPlugin):
 
@@ -24,33 +29,60 @@ class OAuth2Plugin(AuthPlugin):
     oauth = parser.add_argument_group(title='OAuth 2.0')
 
     oauth.add_argument(
-        '--issuer-uri',
+        '--token-url',
         default=None,
-        metavar='ISSUER_URI',
+        metavar='TOKEN_URL',
         help="""
-        The OAuth 2.0 Issuer URI
+        The OAuth 2.0 Token URL
         """,
     )
 
     oauth.add_argument(
         '--scope',
-        default=None,
+        default='user_impersonation', # predefine default scope
         metavar='SCOPE',
         help="""
         The OAuth 2.0 Scopes
         """,
     )
 
+    # 210507 pa: adding support for optional "resource"  parameter, required for ADFS 2016/2019 OAuth2 
+    oauth.add_argument(
+        '--resource',
+        default=None,
+        metavar='RESOURCE',
+        help="""
+        The OAuth 2.0 Resource (required for ADFS 2016/2019 OAuth2)
+        """,
+    )
+
     def get_auth(self, username, password):
         
         args = parser.args
-        
-        auth = HTTPBasicAuth(username, password)
-        client = BackendApplicationClient(client_id=username)
-        oauth = OAuth2Session(client=client)
-        token = oauth.fetch_token(token_url=args.issuer_uri, auth=auth, scope=args.scope)
+        client_id, client_secret = username, password
+        custom_args = {}
+        if args.resource:
+            custom_args['resource'] = args.resource
 
-        return BearerAuth(token=token['access_token'])
+        try:
+            client = BackendApplicationClient(client_id=client_id)
+            oauth = OAuth2Session(client=client)
+            # print('---# new token requested #---')
+            token_result = oauth.fetch_token(
+                token_url=args.token_url, 
+                client_id=client_id,
+                client_secret=client_secret,
+                scope=args.scope,
+                **custom_args,
+                )
+        except OAuth2Error as oauth_error:
+            raise HttpieOAuth2Error(
+                "Error generating access token: {0}, {1}, {2}".format(
+                    oauth_error.error, oauth_error.status_code, oauth_error.description
+                )
+            )
+        else:                
+            return BearerAuth(token=token_result.get('access_token'))
 
 class BearerAuth(AuthBase):
     """Adds proof of authorization (Bearer token) to the request."""

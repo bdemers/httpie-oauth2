@@ -14,7 +14,7 @@ setup(
     author_email='bdemers@apache.org',
     license='BSD',
     url='https://github.com/bdemers/httpie-oauth2',
-    download_url='https://github.com/bdemers/httpie-oauth',
+    download_url='https://github.com/bdemers/httpie-oauth2',
     py_modules=['httpie_oauth2'],
     zip_safe=False,
     entry_points={
@@ -24,7 +24,7 @@ setup(
     },
     install_requires=[
         'httpie>=0.7.0',
-        'requests-oauthlib>=0.8.0'
+        'requests-oauthlib>=0.8.0'  
     ],
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
